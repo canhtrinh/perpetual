@@ -40,6 +40,27 @@ module.exports = {
       port: 8545,
       gasPrice: 1,
     },
+    btevm: {
+      network_id: '945',
+      provider: () => new HDWalletProvider(
+        [process.env.DEPLOYER_PRIVATE_KEY],
+        process.env.BTEVM_RPC_URL || 'https://test.chain.opentensor.ai',
+        0,
+        1,
+        true, // shareNonce
+        'm/44\'/60\'/0\'/0/', // derivationPath
+        true, // polling
+      ),
+      gasPrice: Number(process.env.GAS_PRICE) || 1000000000, // 1 gwei
+      gas: 8000000,
+      from: process.env.DEPLOYER_ACCOUNT,
+      timeoutBlocks: 500,
+      confirmations: 2,
+      websockets: false,
+      skipDryRun: true,
+      disableConfirmationListener: true,
+      deploymentPollingInterval: 1000,
+    },
     mainnet: {
       network_id: '1',
       provider: () => new HDWalletProvider(
