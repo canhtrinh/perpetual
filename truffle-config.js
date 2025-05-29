@@ -6,7 +6,7 @@ module.exports = {
   compilers: {
     solc: {
       version: '0.5.16',
-      docker: process.env.DOCKER_COMPILER !== 'false',
+      docker: false,
       parser: 'solcjs',
       settings: {
         optimizer: {
@@ -22,6 +22,11 @@ module.exports = {
       port: 8545,
       gasPrice: 1,
       network_id: '1001',
+      confirmations: 0,
+      timeoutBlocks: 1,
+      skipDryRun: true,
+      deploymentPollingInterval: 1000,
+      disableConfirmationListener: true,
     },
     coverage: {
       host: '127.0.0.1',

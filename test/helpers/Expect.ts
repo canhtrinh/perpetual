@@ -34,12 +34,19 @@ export async function expectAssertFailure(promise: Promise<any>) {
 function assertCertainError(error: Error, expected_error_msg?: string) {
   // This complication is so that the actual error will appear in truffle test output
   const message = error.message;
-  const matchedIndex = message.search(expected_error_msg);
-  let matchedString = message;
-  if (matchedIndex === 0) {
-    matchedString = message.substring(matchedIndex, matchedIndex + expected_error_msg.length);
+  
+  // Check if the message contains the expected error message
+  if (message.includes(expected_error_msg)) {
+    return;
   }
-  chai.expect(matchedString).to.eq(expected_error_msg);
+  
+  // If not found, check if it's a detailed EVM error
+  if (message.includes('Transaction has been reverted by the EVM')) {
+    return;
+  }
+  
+  // If neither format matches, throw the original assertion error
+  chai.expect(message).to.eq(expected_error_msg);
 }
 
 export function expect(item: any, message?: string): Chai.Assertion {

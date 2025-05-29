@@ -97,20 +97,18 @@ module.exports = migration;
 
 async function deployTestContracts(deployer, network) {
   if (isDevNetwork(network)) {
-    await Promise.all([
-      deployer.deploy(TestExchangeWrapper),
-      deployer.deploy(TestLib),
-      deployer.deploy(TestP1Funder),
-      deployer.deploy(TestP1Monolith),
-      deployer.deploy(TestP1Oracle),
-      deployer.deploy(TestP1Trader),
-      deployer.deploy(TestSolo),
-      deployer.deploy(TestToken),
-      deployer.deploy(TestToken2),
-      deployer.deploy(TestMakerOracle),
-      deployer.deploy(TestChainlinkAggregator),
-      deployer.deploy(WETH9),
-    ]);
+    await deployer.deploy(TestExchangeWrapper);
+    await deployer.deploy(TestLib);
+    await deployer.deploy(TestP1Funder);
+    await deployer.deploy(TestP1Monolith);
+    await deployer.deploy(TestP1Oracle);
+    await deployer.deploy(TestP1Trader);
+    await deployer.deploy(TestSolo);
+    await deployer.deploy(TestToken);
+    await deployer.deploy(TestToken2);
+    await deployer.deploy(TestMakerOracle);
+    await deployer.deploy(TestChainlinkAggregator);
+    await deployer.deploy(WETH9);
   }
 }
 
@@ -129,24 +127,25 @@ async function deployOracles(deployer, network) {
   const chainlinkOracle = getChainlinkPriceOracleAddress(network, TestChainlinkAggregator);
   const makerOracle = getMakerPriceOracleAddress(network, TestMakerOracle);
 
-  // Deploy funding oracles, Maker oracle wrapper, and Chainlink oracle wrapper.
-  await Promise.all([
-    deployer.deploy(
-      P1FundingOracle,
-      getFundingRateProviderAddress(network),
-    ),
-    deployer.deploy(
-      P1InverseFundingOracle,
-      getFundingRateProviderAddress(network),
-    ),
-    deployer.deploy(
-      P1ChainlinkOracle,
-      chainlinkOracle,
-      PerpetualProxy.address,
-      getChainlinkOracleAdjustmentExponent(network),
-    ),
-    deployer.deploy(P1MakerOracle),
-  ]);
+  // Deploy funding oracles, Maker oracle wrapper, and Chainlink oracle wrapper sequentially
+  await deployer.deploy(
+    P1FundingOracle,
+    getFundingRateProviderAddress(network),
+  );
+  
+  await deployer.deploy(
+    P1InverseFundingOracle,
+    getFundingRateProviderAddress(network),
+  );
+  
+  await deployer.deploy(
+    P1ChainlinkOracle,
+    chainlinkOracle,
+    PerpetualProxy.address,
+    getChainlinkOracleAdjustmentExponent(network),
+  );
+  
+  await deployer.deploy(P1MakerOracle);
 
   // Deploy oracle inverter.
   await deployer.deploy(
@@ -162,76 +161,78 @@ async function deployOracles(deployer, network) {
     makerOracle,
   );
 
-  // Configure routing and permissions.
-  const [oracle, mirror] = await Promise.all([
-    P1MakerOracle.deployed(),
-    P1MirrorOracleETHUSD.deployed(),
-  ]);
-  await Promise.all([
-    oracle.setRoute(
-      PerpetualProxy.address,
-      makerOracle,
-    ),
-    oracle.setRoute(
-      P1OracleInverter.address,
-      makerOracle,
-    ),
-    oracle.setAdjustment(
-      makerOracle,
-      getOracleAdjustment(network),
-    ),
-    mirror.kiss(
-      P1MakerOracle.address,
-    ),
-  ]);
+  // Configure routing and permissions sequentially
+  const oracle = await P1MakerOracle.deployed();
+  const mirror = await P1MirrorOracleETHUSD.deployed();
+  
+  await oracle.setRoute(
+    PerpetualProxy.address,
+    makerOracle,
+  );
+  
+  await oracle.setRoute(
+    P1OracleInverter.address,
+    makerOracle,
+  );
+  
+  await oracle.setAdjustment(
+    makerOracle,
+    getOracleAdjustment(network),
+  );
+  
+  await mirror.kiss(
+    P1MakerOracle.address,
+  );
 }
 
 async function deployTraders(deployer, network) {
-  // deploy traders
-  await Promise.all([
-    deployer.deploy(
-      P1Orders,
-      PerpetualProxy.address,
-      getChainId(network),
-    ),
-    deployer.deploy(
-      P1InverseOrders,
-      PerpetualProxy.address,
-      getChainId(network),
-    ),
-    deployer.deploy(
-      P1Deleveraging,
-      PerpetualProxy.address,
-      getDeleveragingOperatorAddress(network),
-    ),
-    deployer.deploy(
-      P1Liquidation,
-      PerpetualProxy.address,
-    ),
-  ]);
+  // deploy traders sequentially
+  await deployer.deploy(
+    P1Orders,
+    PerpetualProxy.address,
+    getChainId(network),
+  );
+  
+  await deployer.deploy(
+    P1InverseOrders,
+    PerpetualProxy.address,
+    getChainId(network),
+  );
+  
+  await deployer.deploy(
+    P1Deleveraging,
+    PerpetualProxy.address,
+    getDeleveragingOperatorAddress(network),
+  );
+  
+  await deployer.deploy(
+    P1Liquidation,
+    PerpetualProxy.address,
+  );
 
-  // deploy proxies
-  await Promise.all([
-    deployer.deploy(
-      P1CurrencyConverterProxy,
-    ),
-    deployer.deploy(
-      P1LiquidatorProxy,
-      PerpetualProxy.address,
-      P1Liquidation.address,
-      getInsuranceFundAddress(network),
-      getInsuranceFee(network),
-    ),
-    deployer.deploy(
-      P1SoloBridgeProxy,
-      getSoloAddress(network, TestSolo),
-      getChainId(network),
-    ),
-    deployer.deploy(
-      P1WethProxy,
-      getWethAddress(network, WETH9),
-    ),
-  ]);
+  // deploy proxies sequentially
+  await deployer.deploy(
+    P1CurrencyConverterProxy,
+  );
+  
+  await deployer.deploy(
+    P1LiquidatorProxy,
+    PerpetualProxy.address,
+    P1Liquidation.address,
+    getInsuranceFundAddress(network),
+    getInsuranceFee(network),
+  );
+  
+  await deployer.deploy(
+    P1SoloBridgeProxy,
+    getSoloAddress(network, TestSolo),
+    getChainId(network),
+  );
+  
+  await deployer.deploy(
+    P1WethProxy,
+    getWethAddress(network, WETH9),
+  );
 
   // initialize proxies on non-testnet
   if (!isDevNetwork(network)) {
@@ -249,18 +250,17 @@ async function deployTraders(deployer, network) {
     await wethProxy.approveMaximumOnPerpetual(PerpetualProxy.address);
   }
 
-  // set global operators
+  // set global operators sequentially
   const perpetual = await PerpetualV1.at(PerpetualProxy.address);
-  await Promise.all([
-    // TODO: Approve either P1Orders or P1InverseOrders depending on the perpetual market.
-    perpetual.setGlobalOperator(P1Orders.address, true),
-    perpetual.setGlobalOperator(P1Deleveraging.address, true),
-    perpetual.setGlobalOperator(P1Liquidation.address, true),
-    perpetual.setGlobalOperator(P1CurrencyConverterProxy.address, true),
-    perpetual.setGlobalOperator(P1LiquidatorProxy.address, true),
-    perpetual.setGlobalOperator(P1SoloBridgeProxy.address, true),
-    perpetual.setGlobalOperator(P1WethProxy.address, true),
-  ]);
+  
+  await perpetual.setGlobalOperator(P1Orders.address, true);
+  await perpetual.setGlobalOperator(P1Deleveraging.address, true);
+  await perpetual.setGlobalOperator(P1Liquidation.address, true);
+  await perpetual.setGlobalOperator(P1CurrencyConverterProxy.address, true);
+  await perpetual.setGlobalOperator(P1LiquidatorProxy.address, true);
+  await perpetual.setGlobalOperator(P1SoloBridgeProxy.address, true);
+  await perpetual.setGlobalOperator(P1WethProxy.address, true);
+  
   if (isDevNetwork(network)) {
     await perpetual.setGlobalOperator(TestP1Trader.address, true);
   }

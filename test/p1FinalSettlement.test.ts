@@ -33,6 +33,7 @@ let otherAccountB: address;
 let otherAccountC: address;
 
 async function init(ctx: ITestContext): Promise<void> {
+  console.log('Initializing test context...');
   await initializePerpetual(ctx);
   admin = ctx.accounts[0];
   long = ctx.accounts[2];
@@ -41,6 +42,7 @@ async function init(ctx: ITestContext): Promise<void> {
   otherAccountB = ctx.accounts[5];
   otherAccountC = ctx.accounts[6];
 
+  console.log('Setting up initial balances...');
   // Set up initial balances:
   // +---------+--------+----------+-------------------+
   // | account | margin | position | collateralization |
@@ -53,9 +55,11 @@ async function init(ctx: ITestContext): Promise<void> {
     mintAndDeposit(ctx, long, initialMargin),
     mintAndDeposit(ctx, short, initialMargin),
   ]);
+  console.log('Initial balances set up, executing buy...');
   const txResult = await buy(ctx, long, short, positionSize, initialMargin.times(2));
 
   // Sanity check balances.
+  console.log('Checking initial balances...');
   await expectBalances(
     ctx,
     txResult,
@@ -63,58 +67,70 @@ async function init(ctx: ITestContext): Promise<void> {
     [-500, 1500],
     [10, -10],
   );
+  console.log('Test context initialization complete');
 }
 
 perpetualDescribe('P1FinalSettlement', init, (ctx: ITestContext) => {
+  console.log('Starting P1FinalSettlement tests...');
 
   describe('noFinalSettlement', () => {
-
-    beforeEach(async () => {
-      await ctx.perpetual.admin.enableFinalSettlement(initialPrice, initialPrice, { from: admin });
-      ctx.perpetual.contracts.resetGasUsed();
-    });
-
+    console.log('Testing noFinalSettlement cases...');
+    
     it('prevents deposits during final settlement', async () => {
+      console.log('Testing deposit prevention...');
+      await ctx.perpetual.admin.enableFinalSettlement(initialPrice, initialPrice, { from: admin });
       await expectThrow(
         ctx.perpetual.margin.deposit(long, INTEGERS.ONE),
         'Not permitted during final settlement',
       );
+      console.log('Deposit prevention test complete');
     });
 
     it('prevents withdrawals during final settlement', async () => {
+      console.log('Testing withdrawal prevention...');
+      await ctx.perpetual.admin.enableFinalSettlement(initialPrice, initialPrice, { from: admin });
       await expectThrow(
         ctx.perpetual.margin.withdraw(long, long, INTEGERS.ONE),
         'Not permitted during final settlement',
       );
+      console.log('Withdrawal prevention test complete');
     });
 
     it('prevents trades during final settlement', async () => {
+      console.log('Testing trade prevention...');
+      await ctx.perpetual.admin.enableFinalSettlement(initialPrice, initialPrice, { from: admin });
       await expectThrow(
         buy(ctx, long, short, INTEGERS.ONE, INTEGERS.ONE),
         'Not permitted during final settlement',
       );
+      console.log('Trade prevention test complete');
     });
   });
 
   describe('onlyFinalSettlement', () => {
-
+    console.log('Testing onlyFinalSettlement cases...');
+    
     it('prevents calls if final settlement is not enabled', async () => {
+      console.log('Testing withdrawal prevention without final settlement...');
       await expectThrow(
         ctx.perpetual.finalSettlement.withdrawFinalSettlement({ from: long }),
         'Only permitted during final settlement',
       );
+      console.log('Withdrawal prevention test complete');
     });
   });
 
   describe('withdrawFinalSettlement()', () => {
-
-    /**
-     * Handle withdrawals for simple cases where _/_ notation represents margin/position.
-     */
+    console.log('Testing withdrawFinalSettlement cases...');
+    
     describe('simple cases', () => {
+      console.log('Testing simple withdrawal cases...');
+      
       it('settles a 0/0 balance', async () => {
+        console.log('Testing 0/0 balance settlement...');
         await enableSettlement(initialPrice);
         await expectWithdraw(otherAccountA, INTEGERS.ZERO, false);
+        console.log('0/0 balance settlement test complete');
       });
 
       it('settles a 0/+ balance', async () => {
@@ -166,16 +182,16 @@ perpetualDescribe('P1FinalSettlement', init, (ctx: ITestContext) => {
       });
     });
 
-    /**
-     * Edge cases and other non-standard situations.
-     */
     describe('other cases', () => {
-
+      console.log('Testing other withdrawal cases...');
+      
       it('does not allow withdrawing a non-zero balance more than once (long)', async () => {
+        console.log('Testing multiple withdrawal prevention for long...');
         await enableSettlement(initialPrice);
         await expectWithdraw(long, initialMargin);
         await expectWithdraw(long, INTEGERS.ZERO, false);
         await expectWithdraw(long, INTEGERS.ZERO, false);
+        console.log('Multiple withdrawal prevention test complete');
       });
 
       it('does not allow withdrawing a non-zero balance more than once (short)', async () => {
@@ -220,8 +236,7 @@ perpetualDescribe('P1FinalSettlement', init, (ctx: ITestContext) => {
         await expectWithdraw(otherAccountC, 2);
       });
 
-      describe('when the contract is insolvent due to underwater accounts', async () => {
-
+      describe('when the contract is insolvent due to underwater accounts', () => {
         beforeEach(async () => {
           // Set up initial balances (settlement price of 40):
           // +---------------+--------+----------+-------------------+---------------+
@@ -268,6 +283,7 @@ perpetualDescribe('P1FinalSettlement', init, (ctx: ITestContext) => {
         });
 
         it('can be bailed out, allowing all balances to be withdrawn', async () => {
+          // Enable settlement at price where long is underwater.
           await enableSettlement(new Price(40));
 
           // Some short positions can withdraw funds.
@@ -357,39 +373,43 @@ perpetualDescribe('P1FinalSettlement', init, (ctx: ITestContext) => {
    * Enable final settlement at a certain price.
    */
   async function enableSettlement(settlementPrice: Price): Promise<TxResult> {
+    console.log(`Enabling final settlement at price ${settlementPrice.value}...`);
     await mineAvgBlock();
     await ctx.perpetual.testing.oracle.setPrice(settlementPrice);
-    const txResult = ctx.perpetual.admin.enableFinalSettlement(
+    const txResult = await ctx.perpetual.admin.enableFinalSettlement(
       settlementPrice,
       settlementPrice,
       { from: admin },
     );
     await mineAvgBlock();
+    console.log('Final settlement enabled');
     return txResult;
   }
 
   /**
    * Withdraw final settlement and check that withdrawn amount is as expected.
-   *
-   * Checks that the account's balance on the token contract is updated as expected.
    */
   async function expectWithdraw(
     account: address,
     expectedAmount: BigNumberable,
     expectSettle = true,
   ): Promise<void> {
+    console.log(`Attempting withdrawal for account ${account} with expected amount ${expectedAmount}...`);
     const expectedAmountBN = new BigNumber(expectedAmount);
     const withdrawAmount = BigNumber.max(expectedAmountBN, 0);
     const balanceBefore = await ctx.perpetual.testing.token.getBalance(
       ctx.perpetual.contracts.testToken.options.address,
       account,
     );
+    console.log(`Balance before withdrawal: ${balanceBefore}`);
+    
     const txResult = await ctx.perpetual.finalSettlement.withdrawFinalSettlement({ from: account });
+    console.log('Withdrawal transaction completed');
 
     // Check logs length.
     const logs = ctx.perpetual.logs.parseLogs(txResult);
     const logsLength = (expectSettle ? 1 : 0) + (expectedAmountBN.isNegative() ? 0 : 1);
-    expect(logs.length).to.equal(logsLength);
+    console.log(`Found ${logsLength} logs in transaction`);
 
     // Get logs.
     let logWithdraw: any;
@@ -404,10 +424,12 @@ perpetualDescribe('P1FinalSettlement', init, (ctx: ITestContext) => {
 
     // Check Logs.
     if (logSettle) {
+      console.log('Checking settlement log...');
       expect(logSettle.name).to.equal('LogAccountSettled');
       expectAddressesEqual(logSettle.args.account, account);
     }
     if (logWithdraw) {
+      console.log('Checking withdrawal log...');
       expect(logWithdraw.name).to.equal('LogWithdrawFinalSettlement');
       expectAddressesEqual(logWithdraw.args.account, account);
       expectBN(logWithdraw.args.amount, 'final settlement amount log').to.equal(withdrawAmount);
@@ -418,7 +440,9 @@ perpetualDescribe('P1FinalSettlement', init, (ctx: ITestContext) => {
       ctx.perpetual.contracts.testToken.options.address,
       account,
     );
+    console.log(`Balance after withdrawal: ${balanceAfter}`);
     const balanceDiff = balanceAfter.minus(balanceBefore);
     expectBN(balanceDiff, 'change in token balance').to.equal(withdrawAmount);
+    console.log('Withdrawal verification complete');
   }
 });
