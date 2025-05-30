@@ -118,7 +118,7 @@ function getOracleAdjustment(network) {
 }
 
 function getChainlinkOracleAdjustmentExponent() {
-  // Aggregator provides “natural” price with 8 decimals of precision.
+  // Aggregator provides "natural" price with 8 decimals of precision.
   // PLINK uses 6 decimals (by convention).
   // USDC uses 6 decimals.
   return '28';
@@ -220,6 +220,15 @@ function getSoloAddress(network, devContract) {
   throw new Error('Cannot find Solo');
 }
 
+// Add delay between deployments
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const addDeploymentDelay = async (contractName) => {
+  console.log(`Waiting 60 seconds before deployinggg ${contractName}...`);
+  await delay(60000);
+  console.log(`Deploying ${contractName}...`);
+};
+
 module.exports = {
   getChainId,
   isDevNetwork,
@@ -238,4 +247,5 @@ module.exports = {
   getDeleveragingOperatorAddress,
   getFundingRateProviderAddress,
   getSoloAddress,
+  addDeploymentDelay,
 };

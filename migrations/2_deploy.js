@@ -33,6 +33,7 @@ const {
   getDeleveragingOperatorAddress,
   getFundingRateProviderAddress,
   getSoloAddress,
+  addDeploymentDelay,
 } = require('./helpers');
 
 // ============ Constants ============
@@ -97,29 +98,56 @@ module.exports = migration;
 
 async function deployTestContracts(deployer, network) {
   if (isDevNetwork(network)) {
+    await addDeploymentDelay('TestExchangeWrapper');
     await deployer.deploy(TestExchangeWrapper);
+    
+    await addDeploymentDelay('TestLib');
     await deployer.deploy(TestLib);
+    
+    await addDeploymentDelay('TestP1Funder');
     await deployer.deploy(TestP1Funder);
+    
+    await addDeploymentDelay('TestP1Monolith');
     await deployer.deploy(TestP1Monolith);
+    
+    await addDeploymentDelay('TestP1Oracle');
     await deployer.deploy(TestP1Oracle);
+    
+    await addDeploymentDelay('TestP1Trader');
     await deployer.deploy(TestP1Trader);
+    
+    await addDeploymentDelay('TestSolo');
     await deployer.deploy(TestSolo);
+    
+    await addDeploymentDelay('TestToken');
     await deployer.deploy(TestToken);
+    
+    await addDeploymentDelay('TestToken2');
     await deployer.deploy(TestToken2);
+    
+    await addDeploymentDelay('TestMakerOracle');
     await deployer.deploy(TestMakerOracle);
+    
+    await addDeploymentDelay('TestChainlinkAggregator');
     await deployer.deploy(TestChainlinkAggregator);
+    
+    await addDeploymentDelay('WETH9');
     await deployer.deploy(WETH9);
   }
 }
 
 async function deployProtocol(deployer, network, accounts) {
+  await addDeploymentDelay('PerpetualV1');
   await deployer.deploy(PerpetualV1);
+  
+  await addDeploymentDelay('PerpetualProxy');
   await deployer.deploy(
     PerpetualProxy,
     PerpetualV1.address, // logic
     getDeployerAddress(network, accounts), // admin
     '0x', // data
   );
+  console.log('perpetual proxy deployed');
 }
 
 async function deployOracles(deployer, network) {
@@ -128,16 +156,19 @@ async function deployOracles(deployer, network) {
   const makerOracle = getMakerPriceOracleAddress(network, TestMakerOracle);
 
   // Deploy funding oracles, Maker oracle wrapper, and Chainlink oracle wrapper sequentially
+  await addDeploymentDelay('P1FundingOracle');
   await deployer.deploy(
     P1FundingOracle,
     getFundingRateProviderAddress(network),
   );
   
+  await addDeploymentDelay('P1InverseFundingOracle');
   await deployer.deploy(
     P1InverseFundingOracle,
     getFundingRateProviderAddress(network),
   );
   
+  await addDeploymentDelay('P1ChainlinkOracle');
   await deployer.deploy(
     P1ChainlinkOracle,
     chainlinkOracle,
@@ -145,9 +176,11 @@ async function deployOracles(deployer, network) {
     getChainlinkOracleAdjustmentExponent(network),
   );
   
+  await addDeploymentDelay('P1MakerOracle');
   await deployer.deploy(P1MakerOracle);
 
   // Deploy oracle inverter.
+  await addDeploymentDelay('P1OracleInverter');
   await deployer.deploy(
     P1OracleInverter,
     P1MakerOracle.address,
@@ -156,6 +189,7 @@ async function deployOracles(deployer, network) {
   );
 
   // Deploy mirror oracle.
+  await addDeploymentDelay('P1MirrorOracleETHUSD');
   await deployer.deploy(
     P1MirrorOracleETHUSD,
     makerOracle,
@@ -165,21 +199,25 @@ async function deployOracles(deployer, network) {
   const oracle = await P1MakerOracle.deployed();
   const mirror = await P1MirrorOracleETHUSD.deployed();
   
+  await addDeploymentDelay('Setting oracle routes');
   await oracle.setRoute(
     PerpetualProxy.address,
     makerOracle,
   );
   
+  await addDeploymentDelay('Setting oracle inverter routes');
   await oracle.setRoute(
     P1OracleInverter.address,
     makerOracle,
   );
   
+  await addDeploymentDelay('Setting oracle adjustment');
   await oracle.setAdjustment(
     makerOracle,
     getOracleAdjustment(network),
   );
   
+  await addDeploymentDelay('Setting mirror oracle permissions');
   await mirror.kiss(
     P1MakerOracle.address,
   );
@@ -187,12 +225,14 @@ async function deployOracles(deployer, network) {
 
 async function deployTraders(deployer, network) {
   // deploy traders sequentially
+  await addDeploymentDelay('P1Orders');
   await deployer.deploy(
     P1Orders,
     PerpetualProxy.address,
     getChainId(network),
   );
   
+  await addDeploymentDelay('P1InverseOrders');
   await deployer.deploy(
     P1InverseOrders,
     PerpetualProxy.address,
